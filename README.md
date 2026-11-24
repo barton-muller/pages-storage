@@ -10,6 +10,8 @@
 
 One GitHub App and one relay serve every site you list. All pages under one GitHub Pages address share a sign-in. Each extra domain you add asks for one more sign-in, then works the same. Several apps, or several screens of one app, can use the same repo, so a phone app, a dashboard and an AI agent can all work on the same data.
 
+**Other hosts and merging.** The client also has [rules for merging data that several devices write](docs/GUIDE.md#merging-and-other-git-hosts) and a store for Forgejo, Gitea and Codeberg that works with a pasted token and no relay.
+
 **Size limit:** files up to about 1 MB each, one request per file, and every save is a commit. It suits settings, notes, plans and small records, not images, uploads or heavy write traffic. More in [Limits](docs/GUIDE.md#limits).
 
 **[Try the live example](https://barton-muller.github.io/pages-storage/).** Sign in with GitHub, or use the demo, which needs no account. It browses a repo and creates, edits and deletes text files. The source is [`docs/index.html`](docs/index.html), about 160 lines.
@@ -22,7 +24,7 @@ One GitHub App and one relay serve every site you list. All pages under one GitH
    [![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/barton-muller/pages-storage)
 3. **Add it to your app.**
    ```
-   npm install git+https://github.com/barton-muller/pages-storage.git#v0.2.0
+   npm install git+https://github.com/barton-muller/pages-storage.git#v0.3.0
    ```
    ```js
    import { createClient } from 'pages-storage/client';
@@ -60,7 +62,7 @@ The **[full guide](docs/GUIDE.md)** says what this is good for, how it works in 
 
 ## Test
 
-`npm test` runs 26 checks on the relay, 32 on the client and 28 on the demo backend. They use a pretend GitHub and need Node 18 or newer, no network.
+`npm test` runs the checks on the relay, the client, the demo backend and the merge rules. They use a pretend GitHub and need Node 18 or newer, no network.
 
 ## Publishing the example
 

@@ -18,7 +18,7 @@
 // Each can be a variable or a secret; see .dev.vars.example.
 
 // Keep in step with package.json (a test checks it). GET / reports it, so you can see which version a Worker runs.
-export const VERSION = '0.2.0';
+export const VERSION = '0.3.0';
 
 const TOKEN_URL = 'https://github.com/login/oauth/access_token';
 

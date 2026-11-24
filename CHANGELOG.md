@@ -3,6 +3,16 @@
 Versions follow [semver](https://semver.org/). `package.json` holds the version, and the Worker reports it at `GET /`.
 While the version is 0.x, a minor bump may change the client API. Pin a tag or commit in your app.
 
+## 0.3.0
+
+Client additions. Nothing removed or renamed. `Conflict` now lives in `conflict.js` and is still exported from `ghstore.js`.
+
+- **`pages-storage/merge`:** `syncFiles(store, { files, base, merge, include })`, a three-way sync of whole files over any store with one commit and retry on conflict. `merge3Keys` for flat settings, `mergeRecords` for records with `updatedAt` and tombstones, `mergeText` as the default per-file rule.
+- **`pages-storage/store`:** a store is `fetch()`, `read(id)` and `commit(expected, changes, message)`. `githubStore(client, repo)`, `forgejoStore({ url, repo, branch, token })` for Forgejo, Gitea and Codeberg with a token and no relay, `memoryStore()` for tests, and `storeClient(store)` which gives any store the `read`, `write`, `list` and `remove` calls of the GitHub client.
+- **`tree(repo, branch)` and `blob(repo, sha)`** on the GitHub client, which the GitHub store uses.
+- **Example page:** a collapsed **Advanced** section connects to a Codeberg repo with a token. The page's script moved to `app.js` so a Content Security Policy can forbid inline scripts, and the page has one.
+- **Guide:** a section on merging and other git hosts, and on protecting against XSS.
+
 ## 0.2.0
 
 Client additions. Nothing removed or renamed.

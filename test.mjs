@@ -70,7 +70,7 @@ r = await worker.fetch(new Request('https://relay.example/'), {});
 check('GET / says when not configured', (await r.json()).configured === false);
 check('version matches package.json', VERSION === JSON.parse(readFileSync(new URL('./package.json', import.meta.url))).version);
 
-for (const f of ['ghstore.js', 'demo.js']) {
+for (const f of ['ghstore.js', 'conflict.js', 'merge.js', 'store.js', 'demo.js']) {
   check(`docs/${f} is a copy of client/${f} (run npm run sync-docs)`, readFileSync(new URL(`./docs/${f}`, import.meta.url), 'utf8') === readFileSync(new URL(`./client/${f}`, import.meta.url), 'utf8'));
 }
 

@@ -7,6 +7,7 @@ This guide explains what pages-storage is for, how it works, and every setting y
 - [Set up](#set-up): [1. GitHub App](#1-make-a-github-app), [2. Relay](#2-deploy-the-relay), [3. Your app](#3-add-it-to-your-app)
 - [Several sites and domains](#several-sites-and-domains)
 - [Working with the data](#working-with-the-data)
+- [Merging and other git hosts](#merging-and-other-git-hosts)
 - [Limits](#limits)
 - [Security](#security)
 - [Updating and versions](#updating-and-versions)
@@ -194,6 +195,36 @@ Options of `createClient`:
 - **Private by default.** Keep the data repo private. The app token reaches only the repos the person chose.
 - **Branches.** Pass `branch` to read and write on another branch, for example one per person.
 
+## Merging and other git hosts
+
+Two devices that write to the same repo need a rule for what happens when both changed something. `pages-storage/merge` has the rules and `pages-storage/store` has the stores they run on. Neither needs the relay or GitHub.
+
+```js
+import { syncFiles, merge3Keys, mergeRecords } from 'pages-storage/merge';
+import { githubStore, forgejoStore } from 'pages-storage/store';
+
+const store = githubStore(gh, repo);                                   // after sign-in with the relay
+// or, for Forgejo, Gitea and Codeberg, no sign-in and no relay:
+// const store = forgejoStore({ url: 'https://codeberg.org', repo: 'me/data', branch: 'main', token });
+
+let base = null;                                                       // keep what the last call returned, for example in IndexedDB
+const result = await syncFiles(store, { files: myFiles, base, merge: myMerge, include: (p) => p.startsWith('my-app/') });
+myFiles = result.files; base = result.base;
+```
+
+`syncFiles` is a three-way merge of the last synced state (`base`), the files on this device and the files in the store. It writes what changed in one commit that is based on the state it merged. If someone else committed in the meantime, the commit is refused with `Conflict` and the merge runs again on the new state, up to three times. Merging twice gives the same result, so a retry is safe.
+
+The default rule per file: a change wins over no change, a change wins over a delete, and when both sides changed the file the local one wins. For JSON files pass your own `merge(path, base, local, remote)` and use the helpers:
+
+- `merge3Keys(base, local, remote)` for flat settings. Per key, a change on one side wins over no change on the other. A key changed on both sides goes to local, or to remote with `{ preferRemote: true }`. Use `preferRemote` on the first sync of a device so it picks up what the repo has.
+- `mergeRecords(local, remote)` for collections of records with an `updatedAt`. The newest wins and deletes are records with `deleted: true`, so a delete is not undone by a device that still has the record.
+
+A store is three calls: `fetch()` returns `{ revision, files: { path: id } }`, `read(id)` returns text, and `commit(expected, changes, message)` writes in one commit and throws `Conflict` if the remote is no longer at `expected`. That is all the merge needs, so a store for another host is small. `storeClient(store)` wraps any store in the `read`, `write`, `list` and `remove` calls of the GitHub client, which is how the example page's collapsed **Advanced** section works with Codeberg.
+
+**Which hosts work from a web page.** A page can only call servers that allow its origin (CORS). `api.github.com` does. Codeberg's API does too, for `GET`, `POST`, `PUT` and `DELETE` with an `Authorization` header. For a self-hosted Forgejo or Gitea, turn on `[cors]` in `app.ini` and list your site. The git protocol itself (`git clone` over HTTPS) is not callable from a page on most hosts, and neither are `github.com`'s sign-in endpoints. For those you need a relay, or a native app: the [FitoTrack fork](https://github.com/barton-muller/fitotrack-githubsync) uses JGit and the same merge rules on Android. The Forgejo store uses the batch endpoint `POST /repos/{owner}/{repo}/contents`, which needs Forgejo or Gitea 1.20 or newer.
+
+**A token in the page.** With `forgejoStore` the person pastes an access token. Give it write access to one repo and nothing else, and keep it out of `localStorage`: the example keeps it in session storage, so it is gone when the tab closes. That is better, not safe: any script on the page can read either. See [Protecting against XSS](#security).
+
 ## Limits
 
 - Around 1 MB per file through `read` and `write`, which use the Contents API. `writeMany` goes through the Git data API, which GitHub documents with a much higher per-file limit, but `read` still uses the 1 MB route, and I have not tested large files. Keep data as a few JSON or text files.
@@ -211,6 +242,12 @@ Options of `createClient`:
 - PKCE ties each code to the browser that asked for it, so a stolen code is useless.
 - **Tell people what a site can do.** An app installed on a repo can read and write every file in it, and so can the site that holds the token. The example page says so before sign-in and offers to create a private test repo. Do the same, and suggest a separate repo for the data.
 - The token lives in the browser's storage. Treat the site like any page that holds a login: no third-party scripts you do not trust.
+- **Protecting against XSS.** No browser storage is safe from a script that runs on your origin, so stop the injection and limit what a stolen token can do.
+  - **Content Security Policy.** GitHub Pages cannot set headers, so use a meta tag. The example page has one: `default-src 'none'; script-src 'self'; connect-src https://api.github.com <your relay>; base-uri 'none'; form-action 'none'`. Scripts come only from your own files (no inline scripts, which is why the example's code is in `app.js`), and the page can only talk to GitHub and your relay, so an injected script cannot send a token anywhere else. `style-src 'unsafe-inline'` is a small risk many pages accept. Add `require-trusted-types-for 'script'` on Chromium.
+  - **Treat data from the repo as untrusted.** An AI agent, a collaborator or a bad import can write it. Put it on the page with `textContent`, never `innerHTML`. If you must render Markdown or HTML, sanitize it with DOMPurify. Libraries that take HTML strings (for example Leaflet tooltips) need the same care. Escape first.
+  - **Self-host scripts or pin them with Subresource Integrity.** A compromised CDN script is an XSS.
+  - **One origin per trust level.** Every project page under `you.github.io` shares one origin and so one token and one IndexedDB. An XSS in any of them reaches all of them. Put sensitive apps on their own subdomain or custom domain, or accept the shared risk on purpose.
+  - **Limit the damage.** The 8-hour access token, a GitHub App that only reaches the repos you chose, Contents permission only, and a private data repo. For pasted tokens, a fine-grained token on one repo with a short expiry.
 - To cut everyone off at once, generate a new client secret in the GitHub App and update `GITHUB_CLIENT_SECRET`.
 - Wildcard callback URLs let any page under that address receive codes. Use them only for addresses you fully control.
 

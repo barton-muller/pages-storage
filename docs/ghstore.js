@@ -14,9 +14,8 @@
 //   await gh.write(repo, 'notes.json', text, f?.sha);     // returns the new sha; throws Conflict on a stale sha
 //   await gh.remove(repo, 'notes.json', f.sha);           // true, or false if already gone
 
-export class Conflict extends Error {
-  constructor() { super('The file changed on GitHub since it was read.'); this.name = 'Conflict'; }
-}
+import { Conflict } from './conflict.js';
+export { Conflict };
 
 const API = 'https://api.github.com';
 const b64 = (s) => btoa(String.fromCharCode(...new TextEncoder().encode(s)));
@@ -211,6 +210,33 @@ export function createClient({ clientId, relay, appSlug, name = 'gh-store', fold
         if (base) throw new Conflict();
       }
       throw new Conflict();
+    },
+
+    // Every file of the app's folder on a branch: { head, files: { path: sha } }, paths relative to the folder. Used by the store in store.js.
+    async tree(repo, branch) {
+      const t = await api.token();
+      const br = branch || (await (await gh(t, `/repos/${repo}`)).json()).default_branch;
+      const ref = await gh(t, `/repos/${repo}/git/ref/heads/${encodeURIComponent(br)}`);
+      if (ref.status === 404 || ref.status === 409) return { head: null, files: {} };
+      if (!ref.ok) throw new Error(`GitHub ${ref.status}`);
+      const head = (await ref.json()).object.sha;
+      const r = await gh(t, `/repos/${repo}/git/trees/${head}?recursive=1`);
+      if (!r.ok) throw new Error(`GitHub ${r.status}`);
+      const j = await r.json();
+      if (j.truncated) throw new Error('The repo has too many files to list.');
+      const prefix = at('');
+      const pre = prefix ? `${prefix}/` : '';
+      const files = {};
+      for (const e of j.tree) if (e.type === 'blob' && e.path.startsWith(pre)) files[e.path.slice(pre.length)] = e.sha;
+      return { head, files };
+    },
+
+    // The text of a file by its sha, as listed by tree().
+    async blob(repo, sha) {
+      const t = await api.token();
+      const r = await gh(t, `/repos/${repo}/git/blobs/${sha}`);
+      if (!r.ok) throw new Error(`GitHub ${r.status}`);
+      return unb64((await r.json()).content);
     },
 
     // The commits that touched a file, newest first: [{ sha, message, author, date }]. Pass a sha to read() to get that version.
