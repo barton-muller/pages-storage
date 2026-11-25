@@ -5,7 +5,9 @@
 //                                       Throws Conflict when the remote is no longer at `expected`.
 //
 //   githubStore(client, repo, { branch })           GitHub, through the client from ghstore.js (sign in with the relay)
+//   githubTokenStore({ repo, branch, token })        GitHub with an access token instead of sign-in, no relay
 //   forgejoStore({ url, repo, branch, token })      Forgejo, Gitea and Codeberg with an access token, no relay
+//   storeFromUrl(url, { token, branch })            any of the above from a repo address, as copied for git clone
 //   memoryStore()                                   in memory, for tests and demos
 //   storeClient(store, label)                       any store behind the read/write/list/remove calls of the GitHub client
 //
@@ -59,6 +61,81 @@ export function githubStore(client, repo, { branch, message = 'Sync' } = {}) {
       return (await client.writeMany(repo, changes, { branch, message: msg, base: expected })).commit;
     },
   };
+}
+
+// GitHub with a personal access token, through the Git data API: one commit for all files, refused when the branch moved.
+export function githubTokenStore({ repo, branch = 'main', token, fetch: fetchImpl = (...a) => fetch(...a), folder = '' }) {
+  const api = `https://api.github.com/repos/${repo}`;
+  const pre = folder.replace(/^\/+|\/+$/g, '');
+  const prefix = pre ? `${pre}/` : '';
+  const call = (path, init = {}) =>
+    fetchImpl(`${api}${path}`, { ...init, cache: 'no-store', headers: { Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28', ...(token ? { Authorization: `Bearer ${token}` } : {}), ...(init.body ? { 'Content-Type': 'application/json' } : {}), ...init.headers } });
+  const json = async (path, init) => {
+    const r = await call(path, init);
+    if (!r.ok) throw new Error(`GitHub ${r.status}`);
+    return r.json();
+  };
+  const head = async () => {
+    const r = await call(`/git/ref/heads/${encodeURIComponent(branch)}`);
+    if (r.status === 404 || r.status === 409) return null;
+    if (!r.ok) throw new Error(`GitHub ${r.status}`);
+    return (await r.json()).object.sha;
+  };
+  return {
+    async fetch() {
+      const sha = await head();
+      if (!sha) return { revision: null, files: {} };
+      const tree = (await json(`/git/commits/${sha}`)).tree.sha;
+      const t = await json(`/git/trees/${tree}?recursive=1`);
+      if (t.truncated) throw new Error('The repo has too many files to list.');
+      const files = {};
+      for (const e of t.tree) if (e.type === 'blob' && e.path.startsWith(prefix)) files[e.path.slice(prefix.length)] = e.sha;
+      return { revision: sha, files };
+    },
+    async read(id) { return unb64((await json(`/git/blobs/${id}`)).content); },
+    async commit(expected, changes, message = 'Sync') {
+      if (!expected) throw new Error('The repo has no commits yet. Create it with an initial commit.');
+      if ((await head()) !== expected) throw new Conflict();
+      const entries = Object.entries(changes).map(([path, text]) => ({ path: prefix + path, mode: '100644', type: 'blob', ...(text === null ? { sha: null } : { content: text }) }));
+      const baseTree = (await json(`/git/commits/${expected}`)).tree.sha;
+      const tree = await json('/git/trees', { method: 'POST', body: JSON.stringify({ base_tree: baseTree, tree: entries }) });
+      const commit = await json('/git/commits', { method: 'POST', body: JSON.stringify({ message, tree: tree.sha, parents: [expected] }) });
+      const up = await call(`/git/refs/heads/${encodeURIComponent(branch)}`, { method: 'PATCH', body: JSON.stringify({ sha: commit.sha, force: false }) });
+      if (up.status === 422 || up.status === 409) throw new Conflict();
+      if (!up.ok) throw new Error(`GitHub ${up.status}`);
+      return commit.sha;
+    },
+  };
+}
+
+// The address of a repo as people copy it for git clone: https://host/owner/name(.git), with a token in front
+// (https://token@host/owner/name.git) if you like. github.com is GitHub; any other host is Forgejo or Gitea.
+export function parseRepoUrl(input) {
+  let u;
+  try { u = new URL(String(input).trim()); } catch { return null; }
+  const parts = u.pathname.replace(/\/+$/, '').replace(/\.git$/, '').split('/').filter(Boolean);
+  if (u.protocol !== 'https:' || parts.length !== 2) return null;
+  const token = decodeURIComponent(u.password || u.username) || undefined;
+  return { host: u.hostname, origin: u.origin, repo: `${parts[0]}/${parts[1]}`, token, github: u.hostname === 'github.com' || u.hostname === 'www.github.com' };
+}
+
+// A store for a repo address and a token. The branch is the repo's default one unless you name it. The address tells the host:
+// github.com uses the GitHub API, anything else the Forgejo and Gitea API. Throws a readable error when the repo or token is wrong.
+export async function storeFromUrl(url, { token, branch, folder = '', fetch: fetchImpl = (...a) => fetch(...a) } = {}) {
+  const p = parseRepoUrl(url);
+  if (!p) throw new Error('Enter the repo address, for example https://github.com/you/data.git');
+  const t = token || p.token;
+  if (!t) throw new Error('Enter an access token.');
+  if (!branch) {
+    const r = await fetchImpl(p.github ? `https://api.github.com/repos/${p.repo}` : `${p.origin}/api/v1/repos/${p.repo}`, { headers: p.github ? { Authorization: `Bearer ${t}`, Accept: 'application/vnd.github+json' } : { Authorization: `token ${t}`, Accept: 'application/json' }, cache: 'no-store' });
+    if (r.status === 404) throw new Error(`Repo ${p.repo} not found for this token. Check the address and the token's access.`);
+    if (r.status === 401 || r.status === 403) throw new Error('Token rejected (expired or wrong).');
+    if (!r.ok) throw new Error(`${p.host} ${r.status}`);
+    branch = (await r.json()).default_branch || 'main';
+  }
+  return p.github
+    ? githubTokenStore({ repo: p.repo, branch, token: t, folder, fetch: fetchImpl })
+    : forgejoStore({ url: p.origin, repo: p.repo, branch, token: t, folder, fetch: fetchImpl });
 }
 
 export function forgejoStore({ url, repo, branch = 'main', token, fetch: fetchImpl = (...a) => fetch(...a), folder = '' }) {

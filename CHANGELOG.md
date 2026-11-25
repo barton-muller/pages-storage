@@ -9,8 +9,9 @@ Client additions. Nothing removed or renamed. `Conflict` now lives in `conflict.
 
 - **`pages-storage/merge`:** `syncFiles(store, { files, base, merge, include })`, a three-way sync of whole files over any store with one commit and retry on conflict. `merge3Keys` for flat settings, `mergeRecords` for records with `updatedAt` and tombstones, `mergeText` as the default per-file rule.
 - **`pages-storage/store`:** a store is `fetch()`, `read(id)` and `commit(expected, changes, message)`. `githubStore(client, repo)`, `forgejoStore({ url, repo, branch, token })` for Forgejo, Gitea and Codeberg with a token and no relay, `memoryStore()` for tests, and `storeClient(store)` which gives any store the `read`, `write`, `list` and `remove` calls of the GitHub client.
+- **`storeFromUrl(url, { token, branch })`:** a store from the address of a repo, as copied for `git clone`, and a token. github.com uses `githubTokenStore` (new: GitHub with a token, no sign-in), any other host `forgejoStore`. The branch is looked up when not given. `parseRepoUrl(url)` is exported too.
 - **`tree(repo, branch)` and `blob(repo, sha)`** on the GitHub client, which the GitHub store uses.
-- **Example page:** a collapsed **Advanced** section connects to a Codeberg repo with a token. The page's script moved to `app.js` so a Content Security Policy can forbid inline scripts, and the page has one.
+- **Example page:** a collapsed **Advanced** section connects to a GitHub or Codeberg repo from its address and a token. The page's script moved to `app.js` so a Content Security Policy can forbid inline scripts, and the page has one.
 - **Guide:** a section on merging and other git hosts, and on protecting against XSS.
 
 ## 0.2.0

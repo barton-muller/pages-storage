@@ -1,6 +1,6 @@
 import { createClient, Conflict } from './ghstore.js';
 import { createDemoClient } from './demo.js';
-import { forgejoStore, storeClient } from './store.js';
+import { parseRepoUrl, storeClient, storeFromUrl } from './store.js';
 
 // Fill in your own values to use real sign-in. Serve this page from an origin listed in the relay's ALLOWED_ORIGINS.
 const CONFIG = {
@@ -25,9 +25,15 @@ const demo = get(MODE) === 'demo';
 // A connection made with a token lives in this tab only, so closing it forgets the token.
 const GIT = `${NAME}:git`;
 const gitCfg = (() => { try { return JSON.parse(sessionStorage.getItem(GIT)); } catch { return null; } })();
-const git = !demo && gitCfg;
+let git = !demo && gitCfg;
+let gitError = '';
+let gitStore = null;
+if (git) {
+  try { gitStore = await storeFromUrl(gitCfg.url, { token: gitCfg.token, branch: gitCfg.branch }); }
+  catch (e) { gitError = e.message; sessionStorage.removeItem(GIT); git = null; }
+}
 const gh = demo ? createDemoClient({ name: NAME, seed: DEMO_FILES })
-  : git ? storeClient(forgejoStore({ url: gitCfg.url, repo: gitCfg.repo, branch: gitCfg.branch, token: gitCfg.token }), gitCfg.repo)
+  : git ? storeClient(gitStore, parseRepoUrl(gitCfg.url).repo)
   : createClient({ ...CONFIG, name: NAME });
 
 let dir = '', file = null; // file: { path, sha }
@@ -96,9 +102,10 @@ $('demo').onclick = async () => { localStorage.setItem(MODE, 'demo'); await crea
 $('reset').onclick = async () => { await gh.reset(); location.reload(); };
 $('signout').onclick = async () => { await gh.signOut(); localStorage.removeItem(MODE); sessionStorage.removeItem(GIT); location.reload(); };
 $('g-connect').onclick = () => {
-  const url = $('g-url').value.trim().replace(/\/+$/, ''), repo = $('g-repo').value.trim(), token = $('g-token').value.trim();
-  if (!/^https:\/\//.test(url) || !/^[\w.-]+\/[\w.-]+$/.test(repo) || !token) return say('Fill in the server (https://…), the repo as owner/name and a token.');
-  sessionStorage.setItem(GIT, JSON.stringify({ url, repo, branch: $('g-branch').value.trim() || 'main', token }));
+  const url = $('g-url').value.trim(), token = $('g-token').value.trim();
+  const p = parseRepoUrl(url);
+  if (!p || !(token || p.token)) return say('Enter the repo address (https://host/owner/name.git) and a token.');
+  sessionStorage.setItem(GIT, JSON.stringify({ url, branch: $('g-branch').value.trim(), token: token || p.token }));
   localStorage.removeItem(MODE);
   location.reload();
 };
@@ -145,6 +152,7 @@ $('create').onclick = async () => {
 };
 
 try { await gh.handleReturn(); } catch (e) { say(e.message); }
+if (gitError) say(gitError);
 if (!git && !(await gh.signedIn())) {
   $('out').hidden = false;
   if (!CONFIG.clientId || !CONFIG.relay) { $('signin').disabled = true; $('cfg-note').hidden = false; }

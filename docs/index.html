@@ -51,10 +51,10 @@
     <hr style="border:0;border-top:1px solid var(--line);margin:1rem 0">
     <div class="row"><button id="demo">Try the demo</button></div>
     <details id="adv" class="adv">
-      <summary>Advanced: Forgejo, Gitea or Codeberg with a token</summary>
-      <p class="mut">No sign-in and no relay. Make an access token with write access to one repo, paste it here, and this page reads and writes that repo. The token stays in this tab only (session storage) and is gone when you close it. The server must allow this page's origin (CORS); Codeberg does. This example is limited to <code>codeberg.org</code> by its Content Security Policy.</p>
-      <div class="row"><input id="g-url" class="grow" value="https://codeberg.org" aria-label="Server" autocapitalize="off" autocomplete="off"></div>
-      <div class="row"><input id="g-repo" class="grow" placeholder="owner/name" aria-label="Repo" autocapitalize="off" autocomplete="off"><input id="g-branch" value="main" aria-label="Branch" size="8" autocapitalize="off" autocomplete="off"></div>
+      <summary>Advanced: any git host with a token</summary>
+      <p class="mut">No sign-in and no relay. Paste the address of a repo on GitHub, Codeberg or a Forgejo or Gitea server, as you would for <code>git clone</code>, and a token that can write to it. The branch is the repo's default one unless you name it. The token stays in this tab only (session storage) and is gone when you close it. The server must allow this page's origin (CORS): GitHub and Codeberg do. This example is limited to those two by its Content Security Policy.</p>
+      <div class="row"><input id="g-url" class="grow" placeholder="https://codeberg.org/you/data.git" aria-label="Repo address" autocapitalize="off" autocomplete="off"></div>
+      <div class="row"><input id="g-branch" class="grow" placeholder="branch, empty for the default" aria-label="Branch" autocapitalize="off" autocomplete="off"></div>
       <div class="row"><input id="g-token" type="password" class="grow" placeholder="access token" aria-label="Access token" autocomplete="off"><button id="g-connect">Connect</button></div>
     </details>
     <p class="note">The demo has a few made-up files that live only in this browser. <b>Nothing is stored remotely.</b> Clearing site data removes them.</p>

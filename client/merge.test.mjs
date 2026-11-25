@@ -1,7 +1,7 @@
 // Run: node client/merge.test.mjs
 import assert from 'node:assert/strict';
 import { merge3Keys, mergeRecords, mergeText, syncFiles } from './merge.js';
-import { memoryStore, forgejoStore, githubStore, storeClient } from './store.js';
+import { memoryStore, forgejoStore, githubStore, githubTokenStore, parseRepoUrl, storeFromUrl, storeClient } from './store.js';
 import { Conflict } from './conflict.js';
 
 let n = 0;
@@ -142,6 +142,58 @@ await test('storeClient: the GitHub client calls over any store', async () => {
   assert.equal(await c.read('me/data', 'nope.txt'), null);
   assert.equal(await c.remove('me/data', 'a.txt', sha), true);
   assert.equal(await c.remove('me/data', 'a.txt', sha), false);
+});
+
+await test('parseRepoUrl: the address as copied for git clone', () => {
+  assert.deepEqual(parseRepoUrl('https://github.com/me/data.git'), { host: 'github.com', origin: 'https://github.com', repo: 'me/data', token: undefined, github: true });
+  assert.equal(parseRepoUrl('https://codeberg.org/me/data/').github, false);
+  assert.equal(parseRepoUrl('https://tok123@git.example.org/me/data.git').token, 'tok123');
+  assert.equal(parseRepoUrl('https://user:tok456@git.example.org/me/data').token, 'tok456');
+  assert.equal(parseRepoUrl('http://github.com/me/data'), null);
+  assert.equal(parseRepoUrl('https://github.com/me'), null);
+  assert.equal(parseRepoUrl('not a url'), null);
+});
+await test('storeFromUrl: the host picks the API and the default branch is looked up', async () => {
+  const seen = [];
+  const mk = (defaultBranch) => async (url, init = {}) => {
+    seen.push(`${init.headers?.Authorization} ${url}`);
+    if (/\/repos\/me\/data$/.test(url)) return new Response(JSON.stringify({ default_branch: defaultBranch }));
+    if (url.includes('/git/ref/heads/') || url.includes('/branches/')) return new Response(JSON.stringify({ object: { sha: 'h1' }, commit: { id: 'h1' } }));
+    if (url.includes('/git/commits/')) return new Response(JSON.stringify({ tree: { sha: 't1' } }));
+    if (url.includes('/git/trees/')) return new Response(JSON.stringify({ tree: [{ path: 'a.txt', type: 'blob', sha: 'x1' }] }));
+    return new Response('{}', { status: 404 });
+  };
+  const gh = await storeFromUrl('https://github.com/me/data.git', { token: 'T', fetch: mk('trunk') });
+  assert.deepEqual(await gh.fetch(), { revision: 'h1', files: { 'a.txt': 'x1' } });
+  const fj = await storeFromUrl('https://tok@codeberg.org/me/data.git', { fetch: mk('dev') });
+  assert.deepEqual(await fj.fetch(), { revision: 'h1', files: { 'a.txt': 'x1' } });
+  assert.ok(seen[0].startsWith('Bearer T https://api.github.com/repos/me/data'));
+  assert.ok(seen.some((s) => s.includes('/git/ref/heads/trunk')));
+  assert.ok(seen.some((s) => s.startsWith('token tok https://codeberg.org/api/v1/repos/me/data')));
+  assert.ok(seen.some((s) => s.includes('/branches/dev')));
+  await assert.rejects(() => storeFromUrl('https://github.com/me/data', {}), /token/);
+  await assert.rejects(() => storeFromUrl('https://github.com/me/data', { token: 'x', fetch: async () => new Response('{}', { status: 404 }) }), /not found/);
+});
+await test('githubTokenStore: one commit through the git data API, refused when the branch moved', async () => {
+  const calls = [];
+  let head = 'h1';
+  const f = async (url, init = {}) => {
+    const m = init.method ?? 'GET';
+    calls.push(m + ' ' + url.replace('https://api.github.com/repos/me/data', ''));
+    const ok = (b, status = 200) => new Response(JSON.stringify(b), { status });
+    if (url.includes('/git/ref/heads/main') && m === 'GET') return ok({ object: { sha: head } });
+    if (url.includes('/git/commits/') && m === 'GET') return ok({ tree: { sha: 't0' } });
+    if (url.endsWith('/git/trees') && m === 'POST') return ok({ sha: 't1' }, 201);
+    if (url.endsWith('/git/commits') && m === 'POST') return ok({ sha: 'c2' }, 201);
+    if (url.includes('/git/refs/heads/main') && m === 'PATCH') return ok({});
+    return ok({}, 404);
+  };
+  const store = githubTokenStore({ repo: 'me/data', token: 'T', fetch: f });
+  assert.equal(await store.commit('h1', { 'a.txt': 'new', 'b.txt': null }, 'm'), 'c2');
+  const tree = calls.find((c) => c.endsWith('/git/trees'));
+  assert.ok(tree);
+  head = 'h9';
+  await assert.rejects(() => store.commit('h1', { 'a.txt': 'x' }), Conflict);
 });
 
 console.log(`${n} checks passed`);
