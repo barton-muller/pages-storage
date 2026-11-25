@@ -4,7 +4,7 @@ This guide explains what pages-storage is for, how it works, and every setting y
 
 - [What problem this solves](#what-problem-this-solves)
 - [How it works](#how-it-works)
-- [Set up](#set-up): [1. GitHub App](#1-make-a-github-app), [2. Relay](#2-deploy-the-relay), [3. Your app](#3-add-it-to-your-app)
+- [Set up the GitHub sign-in](#set-up): [1. GitHub App](#1-make-a-github-app), [2. Relay](#2-deploy-the-relay), [3. Your app](#3-add-it-to-your-app)
 - [Several sites and domains](#several-sites-and-domains)
 - [Working with the data](#working-with-the-data)
 - [Merging and other git hosts](#merging-and-other-git-hosts)
@@ -21,11 +21,11 @@ A static site, such as one on GitHub Pages, has no backend. The usual ways to ke
 - **Your own backend** needs hosting, a database, accounts, and a privacy policy. You carry the risk of holding other people's data.
 - **A hosted backend service** needs its own sign-up for you and for your users, and locks the data in.
 
-pages-storage uses something every developer, and a growing number of other people, already has: a GitHub account. The data goes in a repo the person owns. You never hold it, and neither does the relay.
+pages-storage uses something every developer, and a growing number of other people, already has: an account on a git host such as GitHub, GitLab or Codeberg. The data goes in a repo the person owns. You never hold it, and neither does the relay.
 
 What you get:
 - **No server and no database to run.** The relay is a function of about 110 lines on Cloudflare's free tier. It holds one secret and no data.
-- **Identity for free.** "Sign in with GitHub" and no passwords.
+- **Identity for free.** "Sign in with GitHub", or a pasted token for GitHub, GitLab, Codeberg, Forgejo and Gitea, and no passwords.
 - **The person owns the data.** It is files in their repo, with history, diffs and revert. They can read it, edit it, or take it elsewhere.
 - **Several interfaces on one set of data.** A phone app, a dashboard, a script and an AI agent can all read and edit the same files. The agent just needs the repo.
 - **Sharing.** Give someone else access to the repo and they see the same data.
@@ -36,12 +36,14 @@ It suits personal tools, planners, notes, trackers, small-team data, and content
 It does not suit:
 - **Large or binary data.** Files are limited to about 1 MB through this route.
 - **Many writes per second.** Every save is a commit.
-- **Anonymous visitors.** People need a GitHub account.
+- **Anonymous visitors.** People need an account on a supported git host.
 - **Fine-grained access between strangers**, or logic that must run on a server.
 
 For a comparison with the [remoteStorage](https://remotestorage.io/) protocol: that is a real standard with many compatible servers, and this is not one. It trades portability for a provider almost everyone already has, plus history and AI-editable files.
 
 ## How it works
+
+This section describes the GitHub sign-in. Connecting with a token on any host is described in [Merging and other git hosts](#merging-and-other-git-hosts).
 
 Three parties: the **site** (static, in the browser), **GitHub**, and the **relay** (a Cloudflare Worker).
 
@@ -233,7 +235,7 @@ The stores share one implementation of everything that has to behave the same, a
 - One request per file. No transactions across files.
 - 5,000 requests an hour per user. Plenty for one person, and conditional reads (`etag`) cost nothing.
 - Reads can lag a few seconds behind a write because of GitHub's caching.
-- People need a GitHub account.
+- People need an account on a supported git host (GitHub, GitLab, Codeberg, Forgejo, Gitea).
 - Access tokens last 8 hours and the client renews them. After about 6 months without use the person signs in again.
 
 ## Security
@@ -272,6 +274,7 @@ The stores share one implementation of everything that has to behave the same, a
 | `redirect_uri_mismatch` (from GitHub) | The site's address is not in the app's Callback URLs. Add it with the trailing `/`, or turn on wildcard matching. |
 | 404 after installing the app on a repo | The Setup URL is wrong. Set it to `<relay address>/return`. |
 | After installing, you land on the app page, not your site | The install link lacks `state`, or the site's origin is not in `ALLOWED_ORIGINS`. Use `gh.installUrl()`. |
+| An error from a store (`Unauthorized`, `NotFound`, `HostUnreachable`, `ApiMismatch`, …) | See the error table in [HOSTS.md](HOSTS.md#errors). The message says which host and which call. |
 | `repos()` returns an empty list | The app is not installed on any repo yet. Send the person to `gh.installUrl()`, or call `createRepo()`. |
 | `createRepo` says the app is not allowed | The GitHub App lacks the *Repository creation* permission. Add it in the app's *Permissions & events*, then approve the change on your own installation. |
 | `Conflict` on write | The file changed since it was read. Read again, merge, write again. |
