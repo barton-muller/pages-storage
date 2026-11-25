@@ -1,6 +1,6 @@
 // Run: node worker/test.mjs   (needs Node 18+; GitHub is mocked)
 import worker, { VERSION } from './index.js';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 
 const env = { GITHUB_CLIENT_ID: 'Iv1.public', GITHUB_CLIENT_SECRET: 'shh', ALLOWED_ORIGINS: 'https://me.github.io, http://localhost:5173' };
 const seen = [];
@@ -70,7 +70,7 @@ r = await worker.fetch(new Request('https://relay.example/'), {});
 check('GET / says when not configured', (await r.json()).configured === false);
 check('version matches package.json', VERSION === JSON.parse(readFileSync(new URL('./package.json', import.meta.url))).version);
 
-for (const f of ['ghstore.js', 'conflict.js', 'merge.js', 'store.js', 'demo.js']) {
+for (const f of ['ghstore.js', 'conflict.js', 'merge.js', 'store.js', 'demo.js', ...readdirSync(new URL('./client/hosts/', import.meta.url)).filter((n) => n.endsWith('.js')).map((n) => `hosts/${n}`)]) {
   check(`docs/${f} is a copy of client/${f} (run npm run sync-docs)`, readFileSync(new URL(`./docs/${f}`, import.meta.url), 'utf8') === readFileSync(new URL(`./client/${f}`, import.meta.url), 'utf8'));
 }
 

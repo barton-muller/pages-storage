@@ -33,7 +33,7 @@ if (git) {
   catch (e) { gitError = e.message; sessionStorage.removeItem(GIT); git = null; }
 }
 const gh = demo ? createDemoClient({ name: NAME, seed: DEMO_FILES })
-  : git ? storeClient(gitStore, parseRepoUrl(gitCfg.url).repo)
+  : git ? storeClient(gitStore, parseRepoUrl(gitCfg.url).segments.join('/'))
   : createClient({ ...CONFIG, name: NAME });
 
 let dir = '', file = null; // file: { path, sha }

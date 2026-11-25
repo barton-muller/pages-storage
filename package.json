@@ -5,9 +5,10 @@
   "type": "module",
   "description": "Token relay for Sign in with GitHub on static sites (Cloudflare Worker)",
   "scripts": {
-    "test": "node test.mjs && node client/test.mjs && node client/demo.test.mjs && node client/merge.test.mjs",
-    "sync-docs": "cp client/ghstore.js client/conflict.js client/merge.js client/store.js client/demo.js docs/",
-    "deploy": "wrangler deploy"
+    "test": "node test.mjs && node client/test.mjs && node client/demo.test.mjs && node client/merge.test.mjs && node client/hosts.test.mjs",
+    "sync-docs": "cp client/ghstore.js client/conflict.js client/merge.js client/store.js client/demo.js docs/ && mkdir -p docs/hosts && cp client/hosts/*.js docs/hosts/",
+    "deploy": "wrangler deploy",
+    "live-check": "node scripts/live-check.mjs"
   },
   "devDependencies": {
     "wrangler": "^4.0.0"
@@ -42,6 +43,9 @@
     "./store": {
       "types": "./client/store.d.ts",
       "default": "./client/store.js"
+    },
+    "./testing": {
+      "default": "./client/testing/index.js"
     }
   },
   "files": [
@@ -51,11 +55,15 @@
     "client/conflict.d.ts",
     "client/merge.js",
     "client/merge.d.ts",
-    "client/store.js",
-    "client/store.d.ts",
     "client/demo.js",
     "client/demo.d.ts",
     "index.js",
-    "CHANGELOG.md"
+    "CHANGELOG.md",
+    "client/store.js",
+    "client/store.d.ts",
+    "client/hosts/*.js",
+    "client/hosts/errors.d.ts",
+    "client/testing/*.js",
+    "client/testing/fakes/*.js"
   ]
 }

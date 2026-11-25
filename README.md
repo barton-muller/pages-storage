@@ -10,7 +10,7 @@
 
 One GitHub App and one relay serve every site you list. All pages under one GitHub Pages address share a sign-in. Each extra domain you add asks for one more sign-in, then works the same. Several apps, or several screens of one app, can use the same repo, so a phone app, a dashboard and an AI agent can all work on the same data.
 
-**Other hosts and merging.** The client also has [rules for merging data that several devices write](docs/GUIDE.md#merging-and-other-git-hosts) and a store for Forgejo, Gitea and Codeberg that works with a pasted token and no relay.
+**Other hosts and merging.** The client also has [rules for merging data that several devices write](docs/GUIDE.md#merging-and-other-git-hosts) and stores for GitHub, GitLab, Forgejo, Gitea and Codeberg that work from a repo address and a pasted token, with no relay, all kept in step by one test suite ([how](docs/HOSTS.md)).
 
 **Size limit:** files up to about 1 MB each, one request per file, and every save is a commit. It suits settings, notes, plans and small records, not images, uploads or heavy write traffic. More in [Limits](docs/GUIDE.md#limits).
 

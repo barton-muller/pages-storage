@@ -40,8 +40,6 @@ export interface Client {
   createRepoFromTemplate(template: string, name: string, options?: { description?: string; isPrivate?: boolean }): Promise<RepoChoice>;
   writeMany(repo: string, files: Record<string, string | null>, options?: { branch?: string; message?: string; base?: string }): Promise<{ commit: string }>;
   history(repo: string, path: string, options?: { branch?: string; limit?: number }): Promise<Commit[]>;
-  tree(repo: string, branch?: string): Promise<{ head: string | null; files: Record<string, string> }>;
-  blob(repo: string, sha: string): Promise<string>;
   head(repo: string, branch?: string, etag?: string | null): Promise<{ sha: string; etag: string | null } | { notModified: true; etag: string }>;
   changes(repo: string, since: string, branch?: string): Promise<{ head: string; files: Change[]; truncated: boolean }>;
   read(repo: string, path: string, branch?: string, etag?: string | null): Promise<{ text: string; sha: string; etag: string | null } | { notModified: true; etag: string } | null>;

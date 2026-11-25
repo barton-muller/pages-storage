@@ -197,15 +197,15 @@ Options of `createClient`:
 
 ## Merging and other git hosts
 
-Two devices that write to the same repo need a rule for what happens when both changed something. `pages-storage/merge` has the rules and `pages-storage/store` has the stores they run on. Neither needs the relay or GitHub.
+Two devices that write to the same repo need a rule for what happens when both changed something. `pages-storage/merge` has the rules and `pages-storage/store` has the stores they run on. Neither needs the relay.
 
 ```js
 import { syncFiles, merge3Keys, mergeRecords } from 'pages-storage/merge';
 import { githubStore, storeFromUrl } from 'pages-storage/store';
 
-const store = githubStore(gh, repo);                                   // after sign-in with the relay
-// or, with no sign-in and no relay, from the address of any repo and a token (GitHub, Codeberg, Forgejo, Gitea):
-// const store = await storeFromUrl('https://codeberg.org/me/data.git', { token });
+const store = await githubStore(gh, repo);                             // after sign-in with the relay
+// or, with no sign-in and no relay, from the address of any repo and a token (GitHub, GitLab, Codeberg, Forgejo, Gitea):
+// const store = await storeFromUrl('https://gitlab.com/group/data.git', { token });
 
 let base = null;                                                       // keep what the last call returned, for example in IndexedDB
 const result = await syncFiles(store, { files: myFiles, base, merge: myMerge, include: (p) => p.startsWith('my-app/') });
@@ -219,11 +219,11 @@ The default rule per file: a change wins over no change, a change wins over a de
 - `merge3Keys(base, local, remote)` for flat settings. Per key, a change on one side wins over no change on the other. A key changed on both sides goes to local, or to remote with `{ preferRemote: true }`. Use `preferRemote` on the first sync of a device so it picks up what the repo has.
 - `mergeRecords(local, remote)` for collections of records with an `updatedAt`. The newest wins and deletes are records with `deleted: true`, so a delete is not undone by a device that still has the record.
 
-`storeFromUrl(url, { token, branch })` takes the address as people copy it for `git clone` (the token can sit in front of the host, `https://token@host/owner/name.git`). github.com uses the GitHub API (`githubTokenStore`), any other host the Forgejo and Gitea API (`forgejoStore`). Without a branch it uses the repo's default one, and it throws a readable error when the repo or the token is wrong. GitLab has a different API and is not covered yet.
+`storeFromUrl(url, { token, branch })` takes the address as people copy it for `git clone` (the token can sit in front of the host, `https://token@host/group/name.git`). It tells the host from the address: github.com, gitlab.com and codeberg.org are known, and any other server is asked which API it speaks. Without a branch it uses the repo's default one, and it checks that the token can write. GitLab addresses may have subgroups (`group/sub/project`).
 
-A store is three calls: `fetch()` returns `{ revision, files: { path: id } }`, `read(id)` returns text, and `commit(expected, changes, message)` writes in one commit and throws `Conflict` if the remote is no longer at `expected`. That is all the merge needs, so a store for another host is small. `storeClient(store)` wraps any store in the `read`, `write`, `list` and `remove` calls of the GitHub client, which is how the example page's collapsed **Advanced** section works with GitHub and Codeberg from one address and a token.
+The stores share one implementation of everything that has to behave the same, and each host adds only the translation of six calls to its API. The errors are the same on every host: `Conflict`, `Unauthorized`, `NotFound`, `RateLimited`, `HostUnreachable`, `Unsupported`, and `ApiMismatch` when a host answers in a shape the adapter does not expect, with the call and the file to fix in the message. [HOSTS.md](HOSTS.md) has the contract, the table of what each host's API does, how the hosts are kept in step by one test suite, and how to add a host. `storeClient(store)` wraps any store in the `read`, `write`, `list` and `remove` calls of the GitHub client, which is how the example page's collapsed **Advanced** section works with every host from one address and a token.
 
-**Which hosts work from a web page.** A page can only call servers that allow its origin (CORS). `api.github.com` does. Codeberg's API does too, for `GET`, `POST`, `PUT` and `DELETE` with an `Authorization` header. For a self-hosted Forgejo or Gitea, turn on `[cors]` in `app.ini` and list your site. The git protocol itself (`git clone` over HTTPS) is not callable from a page on most hosts, and neither are `github.com`'s sign-in endpoints. For those you need a relay, or a native app: the [FitoTrack fork](https://github.com/barton-muller/fitotrack-githubsync) uses JGit and the same merge rules on Android. The Forgejo store uses the batch endpoint `POST /repos/{owner}/{repo}/contents`, which needs Forgejo or Gitea 1.20 or newer.
+**Which hosts work from a web page.** A page can only call servers that allow its origin (CORS). `api.github.com`, GitLab's API and Codeberg's API do. For a self-hosted server turn on CORS for your site. The git protocol itself (`git clone` over HTTPS) is not callable from a page on these hosts, and neither are `github.com`'s sign-in endpoints. For those you need a relay, or a native app: the [FitoTrack fork](https://github.com/barton-muller/fitotrack-githubsync) uses JGit and the same merge rules on Android.
 
 **A token in the page.** With `storeFromUrl` the person pastes an access token. Give it write access to one repo and nothing else, and keep it out of `localStorage`: the example keeps it in session storage, so it is gone when the tab closes. That is better, not safe: any script on the page can read either. See [Protecting against XSS](#security).
 

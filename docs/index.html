@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src https://api.github.com https://pages-storage-active.barton-fna.workers.dev https://codeberg.org; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src https://api.github.com https://pages-storage-active.barton-fna.workers.dev https://codeberg.org https://gitlab.com; base-uri 'none'; form-action 'none'">
 <title>pages-storage example</title>
 <style>
   :root { --bg:#fffcf0; --fg:#100f0f; --mut:#6f6e69; --line:#d7d3c4; --box:#f2f0e5; --a:#205ea6; --g:#66800b; --r:#af3029; }
@@ -52,7 +52,7 @@
     <div class="row"><button id="demo">Try the demo</button></div>
     <details id="adv" class="adv">
       <summary>Advanced: any git host with a token</summary>
-      <p class="mut">No sign-in and no relay. Paste the address of a repo on GitHub, Codeberg or a Forgejo or Gitea server, as you would for <code>git clone</code>, and a token that can write to it. The branch is the repo's default one unless you name it. The token stays in this tab only (session storage) and is gone when you close it. The server must allow this page's origin (CORS): GitHub and Codeberg do. This example is limited to those two by its Content Security Policy.</p>
+      <p class="mut">No sign-in and no relay. Paste the address of a repo on GitHub, GitLab, Codeberg or a Forgejo or Gitea server, as you would for <code>git clone</code>, and a token that can write to it. The branch is the repo's default one unless you name it. The token stays in this tab only (session storage) and is gone when you close it. The server must allow this page's origin (CORS): GitHub, GitLab and Codeberg do. This example is limited to those three by its Content Security Policy.</p>
       <div class="row"><input id="g-url" class="grow" placeholder="https://codeberg.org/you/data.git" aria-label="Repo address" autocapitalize="off" autocomplete="off"></div>
       <div class="row"><input id="g-branch" class="grow" placeholder="branch, empty for the default" aria-label="Branch" autocapitalize="off" autocomplete="off"></div>
       <div class="row"><input id="g-token" type="password" class="grow" placeholder="access token" aria-label="Access token" autocomplete="off"><button id="g-connect">Connect</button></div>

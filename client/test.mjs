@@ -37,8 +37,6 @@ const fetchImpl = async (url, init = {}) => {
   if (url.endsWith('/git/trees') && init.method === 'POST') { treeBody = JSON.parse(init.body); return ok({ sha: 't1' }); }
   if (url.endsWith('/git/commits') && init.method === 'POST') { commitBody = JSON.parse(init.body); return ok({ sha: 'c1' }, 201); }
   if (url.includes('/git/refs/heads/main') && init.method === 'PATCH') return ok({}, patchFails > 0 && patchFails-- ? 422 : 200);
-  if (url.includes('/git/trees/h1?recursive=1')) return ok({ truncated: false, tree: [{ path: 'notes-app/a.txt', type: 'blob', sha: 'x1' }, { path: 'notes-app/sub/b.txt', type: 'blob', sha: 'x2' }, { path: 'other/c.txt', type: 'blob', sha: 'x3' }, { path: 'notes-app', type: 'tree', sha: 't' }] });
-  if (url.includes('/git/blobs/x1')) return ok({ content: btoa('blob text'), encoding: 'base64' });
   if (url.includes('/commits?')) return ok([{ sha: 'c9', commit: { message: 'Second\n\nbody', author: { name: 'Ann', date: '2026-01-02T00:00:00Z' } } }, { sha: 'c8', commit: { message: 'First', author: { name: 'Ann', date: '2026-01-01T00:00:00Z' } }, author: { login: 'ann' } }]);
   if (url.includes('/compare/')) return ok({ commits: [{ sha: 'c5' }, { sha: 'c6' }], files: [{ filename: 'notes-app/a.txt', status: 'modified' }, { filename: 'notes-app/new.txt', status: 'added' }, { filename: 'notes-app/gone.txt', status: 'removed' }, { filename: 'other/x.txt', status: 'modified' }] });
   if (url.endsWith('/generate') && init.method === 'POST') {
@@ -127,10 +125,6 @@ check('custom storage and cleanUrl', mem2.get('a')?.access === 'ghu_1' && loc ==
 mem2.get('a').expiresAt = 0;
 const toks = await Promise.all([gh2.token(), gh2.token()]);
 check('token: concurrent refreshes share one request', toks[0] === 'ghu_2' && toks[1] === 'ghu_2' && calls.filter((c) => c.url.endsWith('/refresh')).length === 2);
-
-const tree1 = await gh.tree('me/data', 'main');
-check('tree: head, and files under the folder with relative paths', tree1.head === 'h1' && JSON.stringify(tree1.files) === '{"a.txt":"x1","sub/b.txt":"x2"}');
-check('blob: text by sha', (await gh.blob('me/data', 'x1')) === 'blob text');
 
 console.log(fails ? `${fails} failed` : 'all passed');
 process.exit(fails ? 1 : 0);

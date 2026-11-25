@@ -212,33 +212,6 @@ export function createClient({ clientId, relay, appSlug, name = 'gh-store', fold
       throw new Conflict();
     },
 
-    // Every file of the app's folder on a branch: { head, files: { path: sha } }, paths relative to the folder. Used by the store in store.js.
-    async tree(repo, branch) {
-      const t = await api.token();
-      const br = branch || (await (await gh(t, `/repos/${repo}`)).json()).default_branch;
-      const ref = await gh(t, `/repos/${repo}/git/ref/heads/${encodeURIComponent(br)}`);
-      if (ref.status === 404 || ref.status === 409) return { head: null, files: {} };
-      if (!ref.ok) throw new Error(`GitHub ${ref.status}`);
-      const head = (await ref.json()).object.sha;
-      const r = await gh(t, `/repos/${repo}/git/trees/${head}?recursive=1`);
-      if (!r.ok) throw new Error(`GitHub ${r.status}`);
-      const j = await r.json();
-      if (j.truncated) throw new Error('The repo has too many files to list.');
-      const prefix = at('');
-      const pre = prefix ? `${prefix}/` : '';
-      const files = {};
-      for (const e of j.tree) if (e.type === 'blob' && e.path.startsWith(pre)) files[e.path.slice(pre.length)] = e.sha;
-      return { head, files };
-    },
-
-    // The text of a file by its sha, as listed by tree().
-    async blob(repo, sha) {
-      const t = await api.token();
-      const r = await gh(t, `/repos/${repo}/git/blobs/${sha}`);
-      if (!r.ok) throw new Error(`GitHub ${r.status}`);
-      return unb64((await r.json()).content);
-    },
-
     // The commits that touched a file, newest first: [{ sha, message, author, date }]. Pass a sha to read() to get that version.
     async history(repo, path, { branch, limit = 30 } = {}) {
       const t = await api.token();
