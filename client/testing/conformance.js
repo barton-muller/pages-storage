@@ -199,6 +199,16 @@ export function runConformance(id, makeFake, { test, assert }) {
     assert.deepEqual(server.files('u/anna'), { 'a.txt': 'A', 'mine.txt': 'M' });
   });
 
+  t('ensureBranch starts a new branch from the one asked for when it exists', async () => {
+    const { server, mk } = setup();
+    server.seed({ 'a.txt': 'A' });
+    server.seed({ 'a.txt': 'A', 'template.txt': 'T' }, 'template');
+    assert.equal(await mk({ branch: 'u/anna' }).ensureBranch({ from: 'template' }), true);
+    assert.deepEqual(server.files('u/anna'), { 'a.txt': 'A', 'template.txt': 'T' });
+    assert.equal(await mk({ branch: 'u/bob' }).ensureBranch({ from: 'nope' }), true); // no such branch: the default one
+    assert.deepEqual(server.files('u/bob'), { 'a.txt': 'A' });
+  });
+
   t('ensureBranch on a repo with no commits is Unsupported', async () => {
     const { mk } = setup();
     await rejects(mk({ branch: 'u/anna' }).ensureBranch(), Unsupported);

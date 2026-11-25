@@ -27,6 +27,7 @@ export function memoryStore() {
     capabilities: { createOnEmpty: true, concurrency: 'branch' },
     async repoInfo() { return { defaultBranch: 'main', canWrite: true }; },
     async ensureBranch() { return false; },
+    branch: 'main',
     // Runs once, right before the next commit is checked. Lets a test move the remote at the worst moment.
     beforeCommit: null,
     async fetch() {

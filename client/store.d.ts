@@ -10,8 +10,10 @@ export interface Store {
   fetch(): Promise<{ revision: string | null; files: Record<string, string> }>;
   read(id: string): Promise<string>;
   commit(expected: string | null, changes: Record<string, string | null>, message?: string): Promise<string>;
-  /** Creates the store's branch from the default branch when it is missing. True if it created it. */
-  ensureBranch(): Promise<boolean>;
+  /** Creates the store's branch when it is missing, from `from` if that exists, else from the default branch. True if it created it. */
+  ensureBranch(options?: { from?: string }): Promise<boolean>;
+  readonly branch?: string;
+  readonly folder?: string;
 }
 export interface MemoryStore extends Store {
   beforeCommit: (() => unknown) | null;

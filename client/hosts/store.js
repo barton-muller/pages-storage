@@ -26,6 +26,8 @@ export function createGitStore({ host, label, ops, branch, folder = '', concurre
   const store = {
     host,
     label,
+    branch,
+    folder: trimmed,
     // What this host can do. The conformance suite checks that these are true.
     //   createOnEmpty  can take the first commit of an empty repo (no host does, see emptyRepo)
     //   concurrency    what makes a commit fail when someone else committed between our head check and the host call:
@@ -68,13 +70,15 @@ export function createGitStore({ host, label, ops, branch, folder = '', concurre
       return ops.commit(branch, expected, list, message);
     },
 
-    // Makes sure the branch exists, starting it from the default branch. Returns true when it had to create it.
-    async ensureBranch() {
+    // Makes sure the branch exists. A new branch starts from `from` if that branch exists, otherwise from the default branch.
+    // Returns true when it had to create it.
+    async ensureBranch({ from } = {}) {
       const info = await ops.repoInfo();
       if (branch === info.defaultBranch) return false;
       if ((await ops.branchHead(branch)) !== null) return false;
-      if ((await ops.branchHead(info.defaultBranch)) === null) throw emptyRepo();
-      return ops.createBranch(branch, info.defaultBranch);
+      const start = from && from !== branch && (await ops.branchHead(from)) !== null ? from : info.defaultBranch;
+      if ((await ops.branchHead(start)) === null) throw emptyRepo();
+      return ops.createBranch(branch, start);
     },
   };
   return store;
