@@ -84,13 +84,12 @@ export const gitlab = {
   },
 
   // GitLab answers /api/v4/version with { version } when signed in and with a JSON 401 { message } otherwise.
+  // A request that gets no answer at all throws; an answer of another kind returns false.
   async probe(origin, fetch) {
-    try {
-      const r = await fetch(`${origin}/api/v4/version`, { headers: { Accept: 'application/json' }, cache: 'no-store' });
-      if (![200, 401, 403].includes(r.status)) return false;
-      const j = await r.json();
-      return !!(j && typeof j === 'object' && (j.version || (r.status !== 200 && typeof j.message === 'string')));
-    } catch { return false; }
+    const r = await fetch(`${origin}/api/v4/version`, { headers: { Accept: 'application/json' }, cache: 'no-store' });
+    if (![200, 401, 403].includes(r.status)) return false;
+    const j = await r.json().catch(() => null);
+    return !!(j && typeof j === 'object' && (j.version || (r.status !== 200 && typeof j.message === 'string')));
   },
 };
 

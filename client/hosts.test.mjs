@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict';
 import { createStore, hosts, detectHost, parseRepoUrl, storeFromUrl } from './hosts/index.js';
 import { syncFiles } from './merge.js';
-import { Unsupported } from './hosts/errors.js';
+import { HostUnreachable, Unsupported } from './hosts/errors.js';
 import { runConformance } from './testing/conformance.js';
 import { fakes } from './testing/fakes/index.js';
 
@@ -41,6 +41,8 @@ test('detectHost: known hosts need no request, others are probed, unknown ones a
   assert.equal((await detectHost(parseRepoUrl('https://git.example.org/me/data'), gl.fetch)).id, 'gitlab');
   assert.equal((await detectHost(parseRepoUrl('https://git.example.org/me/data'), fj.fetch)).id, 'forgejo');
   await assert.rejects(() => detectHost(parseRepoUrl('https://git.example.org/me/data'), async () => new Response('<html>', { status: 200 })), (e) => e instanceof Unsupported && /Supported: GitHub, GitLab, Forgejo or Gitea/.test(e.message));
+  // no answer at all is not "unknown host": it is a host we could not reach
+  await assert.rejects(() => detectHost(parseRepoUrl('https://git.example.org/me/data'), async () => { throw new TypeError('Failed to fetch'); }), (e) => e instanceof HostUnreachable && /CORS/.test(e.message));
 });
 
 test('storeFromUrl: the host picks the adapter, the default branch is looked up, a read-only token is refused', async () => {

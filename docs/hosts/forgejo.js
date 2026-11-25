@@ -64,11 +64,10 @@ export const forgejo = {
   },
 
   // Forgejo and Gitea answer /api/v1/version with { version } to everyone.
+  // A request that gets no answer at all throws; an answer of another kind returns false.
   async probe(origin, fetch) {
-    try {
-      const r = await fetch(`${origin}/api/v1/version`, { headers: { Accept: 'application/json' }, cache: 'no-store' });
-      const j = r.ok ? await r.json() : null;
-      return !!(j && typeof j === 'object' && j.version);
-    } catch { return false; }
+    const r = await fetch(`${origin}/api/v1/version`, { headers: { Accept: 'application/json' }, cache: 'no-store' });
+    const j = r.ok ? await r.json().catch(() => null) : null;
+    return !!(j && typeof j === 'object' && j.version);
   },
 };

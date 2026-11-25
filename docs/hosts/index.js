@@ -8,7 +8,7 @@
 // To add a host: write client/hosts/<name>.js with the same shape as gitlab.js, add it to `hosts` below, and write its fake
 // server in client/testing/fakes/<name>.js. A test fails until all three exist and the conformance suite passes. See docs/HOSTS.md.
 
-import { Unsupported } from './errors.js';
+import { HostUnreachable, Unsupported } from './errors.js';
 import { forgejo } from './forgejo.js';
 import { github } from './github.js';
 import { gitlab } from './gitlab.js';
@@ -29,7 +29,19 @@ export function parseRepoUrl(input) {
 
 export async function detectHost(parsed, fetch = (...a) => globalThis.fetch(...a)) {
   for (const adapter of Object.values(hosts)) if (adapter.known.includes(parsed.host)) return adapter;
-  for (const adapter of Object.values(hosts)) if (await adapter.probe(parsed.origin, fetch)) return adapter;
+  let answered = false;
+  for (const adapter of Object.values(hosts)) {
+    try {
+      if (await adapter.probe(parsed.origin, fetch)) return adapter;
+      answered = true; // it answered, just not like this kind of host
+    } catch { /* no answer to this probe */ }
+  }
+  if (!answered) {
+    throw new HostUnreachable(
+      `Could not reach ${parsed.host}. Check the address and the connection, and that the server allows web pages to call its API (CORS).`,
+      { host: parsed.host },
+    );
+  }
   throw new Unsupported(
     `Could not tell what kind of git host ${parsed.host} is. Supported: ${Object.values(hosts).map((h) => h.label).join(', ')}. ` +
     'If it is one of those, check the address, and that the server allows web pages to call its API (CORS).',
