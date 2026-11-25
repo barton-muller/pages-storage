@@ -31,6 +31,7 @@ export async function detectHost(parsed, fetch = (...a) => globalThis.fetch(...a
   for (const adapter of Object.values(hosts)) if (adapter.known.includes(parsed.host)) return adapter;
   let answered = false;
   for (const adapter of Object.values(hosts)) {
+    if (!adapter.probe) continue; // a host with fixed names, nothing to ask
     try {
       if (await adapter.probe(parsed.origin, fetch)) return adapter;
       answered = true; // it answered, just not like this kind of host

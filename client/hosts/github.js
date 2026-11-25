@@ -61,7 +61,6 @@ export const github = {
     };
   },
 
-  // Not needed for the known hosts; kept so every adapter has the same shape. GitHub Enterprise is not supported yet.
-  async probe() { return false; },
+  // No probe: GitHub is only github.com. GitHub Enterprise Server is not supported yet.
 };
 

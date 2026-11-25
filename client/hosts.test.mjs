@@ -15,7 +15,8 @@ test('every adapter has a fake server, and every fake an adapter', () => {
   assert.deepEqual(Object.keys(hosts).sort(), Object.keys(fakes).sort());
   for (const [id, h] of Object.entries(hosts)) {
     assert.equal(h.id, id);
-    for (const key of ['label', 'known', 'repoPath', 'create', 'probe']) assert.ok(key in h, `${id} lacks ${key}`);
+    for (const key of ['label', 'known', 'concurrency', 'repoPath', 'create']) assert.ok(key in h, `${id} lacks ${key}`);
+    assert.ok(h.probe || h.known.length, `${id} needs known host names or a probe`);
   }
 });
 
